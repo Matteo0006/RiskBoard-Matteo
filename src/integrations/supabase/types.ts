@@ -14,16 +14,320 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string
+          entity_type: string
+          id: string
+          ip_address: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id: string
+          entity_type: string
+          id?: string
+          ip_address?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          ip_address?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_insights: {
+        Row: {
+          content: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          insight_type: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          insight_type: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          insight_type?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      companies: {
+        Row: {
+          address: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          email: string | null
+          employee_count: number | null
+          fiscal_year_end: string | null
+          id: string
+          industry: string | null
+          name: string
+          phone: string | null
+          registration_number: string | null
+          updated_at: string
+          user_id: string
+          vat_number: string | null
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          employee_count?: number | null
+          fiscal_year_end?: string | null
+          id?: string
+          industry?: string | null
+          name: string
+          phone?: string | null
+          registration_number?: string | null
+          updated_at?: string
+          user_id: string
+          vat_number?: string | null
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          employee_count?: number | null
+          fiscal_year_end?: string | null
+          id?: string
+          industry?: string | null
+          name?: string
+          phone?: string | null
+          registration_number?: string | null
+          updated_at?: string
+          user_id?: string
+          vat_number?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      obligations: {
+        Row: {
+          assigned_to: string | null
+          attachments: Json | null
+          category: Database["public"]["Enums"]["obligation_category"]
+          company_id: string | null
+          completed_at: string | null
+          created_at: string
+          deadline: string
+          description: string | null
+          frequency: Database["public"]["Enums"]["obligation_frequency"]
+          id: string
+          notes: string | null
+          penalty_amount: number | null
+          penalty_description: string | null
+          risk_level: Database["public"]["Enums"]["risk_level"] | null
+          status: Database["public"]["Enums"]["obligation_status"]
+          tags: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          attachments?: Json | null
+          category: Database["public"]["Enums"]["obligation_category"]
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deadline: string
+          description?: string | null
+          frequency?: Database["public"]["Enums"]["obligation_frequency"]
+          id?: string
+          notes?: string | null
+          penalty_amount?: number | null
+          penalty_description?: string | null
+          risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          status?: Database["public"]["Enums"]["obligation_status"]
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          attachments?: Json | null
+          category?: Database["public"]["Enums"]["obligation_category"]
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deadline?: string
+          description?: string | null
+          frequency?: Database["public"]["Enums"]["obligation_frequency"]
+          id?: string
+          notes?: string | null
+          penalty_amount?: number | null
+          penalty_description?: string | null
+          risk_level?: Database["public"]["Enums"]["risk_level"] | null
+          status?: Database["public"]["Enums"]["obligation_status"]
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "obligations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          company_name: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          company_name?: string | null
+          created_at?: string
+          email: string
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          company_name?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string | null
+          id?: string
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reminder_configs: {
+        Row: {
+          created_at: string
+          days_before: number[]
+          email_enabled: boolean | null
+          id: string
+          obligation_id: string
+          push_enabled: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          days_before?: number[]
+          email_enabled?: boolean | null
+          id?: string
+          obligation_id: string
+          push_enabled?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          days_before?: number[]
+          email_enabled?: boolean | null
+          id?: string
+          obligation_id?: string
+          push_enabled?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminder_configs_obligation_id_fkey"
+            columns: ["obligation_id"]
+            isOneToOne: false
+            referencedRelation: "obligations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "manager" | "user" | "viewer"
+      obligation_category:
+        | "tax_financial"
+        | "licenses_permits"
+        | "regulatory_legal"
+      obligation_frequency: "one_time" | "monthly" | "quarterly" | "annual"
+      obligation_status: "pending" | "in_progress" | "completed" | "overdue"
+      risk_level: "low" | "medium" | "high"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +454,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "manager", "user", "viewer"],
+      obligation_category: [
+        "tax_financial",
+        "licenses_permits",
+        "regulatory_legal",
+      ],
+      obligation_frequency: ["one_time", "monthly", "quarterly", "annual"],
+      obligation_status: ["pending", "in_progress", "completed", "overdue"],
+      risk_level: ["low", "medium", "high"],
+    },
   },
 } as const
