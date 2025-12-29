@@ -4,11 +4,26 @@ import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
-type ObligationRow = Database['public']['Tables']['obligations']['Row'];
-type ObligationInsert = Database['public']['Tables']['obligations']['Insert'];
-type CompanyRow = Database['public']['Tables']['companies']['Row'];
-type CompanyInsert = Database['public']['Tables']['companies']['Insert'];
-type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+export type ObligationRow = Database['public']['Tables']['obligations']['Row'];
+export type ObligationInsert = Database['public']['Tables']['obligations']['Insert'];
+export type CompanyRow = Database['public']['Tables']['companies']['Row'];
+export type CompanyInsert = Database['public']['Tables']['companies']['Insert'];
+export type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+export type ReminderConfigRow = Database['public']['Tables']['reminder_configs']['Row'];
+export type ReminderConfigInsert = Database['public']['Tables']['reminder_configs']['Insert'];
+
+// Helper to map DB category to display format
+export const categoryMap: Record<string, string> = {
+  'tax_financial': 'tax',
+  'licenses_permits': 'license',
+  'regulatory_legal': 'regulatory',
+};
+
+export const reverseCategoryMap: Record<string, Database['public']['Enums']['obligation_category']> = {
+  'tax': 'tax_financial',
+  'license': 'licenses_permits',
+  'regulatory': 'regulatory_legal',
+};
 
 export function useObligationsDB() {
   const [obligations, setObligations] = useState<ObligationRow[]>([]);
@@ -17,7 +32,10 @@ export function useObligationsDB() {
   const { toast } = useToast();
 
   const fetchObligations = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     const { data, error } = await supabase
@@ -113,6 +131,7 @@ export function useObligationsDB() {
   return {
     obligations,
     loading,
+    isLoading: loading,
     addObligation,
     updateObligation,
     deleteObligation,
@@ -127,7 +146,10 @@ export function useCompanyDB() {
   const { toast } = useToast();
 
   const fetchCompany = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     const { data, error } = await supabase
@@ -190,6 +212,7 @@ export function useCompanyDB() {
   return {
     company,
     loading,
+    isLoading: loading,
     saveCompany,
     refetch: fetchCompany,
   };
@@ -224,7 +247,111 @@ export function useProfileDB() {
     fetchProfile();
   }, [user]);
 
-  return { profile, loading };
+  return { profile, loading, isLoading: loading };
+}
+
+export function useReminderConfigsDB() {
+  const [reminders, setReminders] = useState<ReminderConfigRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const fetchReminders = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('reminder_configs')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.error('Error fetching reminders:', error);
+    } else {
+      setReminders(data || []);
+    }
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    fetchReminders();
+  }, [fetchReminders]);
+
+  const updateReminder = async (obligationId: string, updates: Partial<ReminderConfigRow>) => {
+    if (!user) return false;
+    
+    // Check if reminder config exists
+    const existing = reminders.find(r => r.obligation_id === obligationId);
+    
+    if (existing) {
+      const { error } = await supabase
+        .from('reminder_configs')
+        .update(updates)
+        .eq('id', existing.id);
+
+      if (error) {
+        console.error('Error updating reminder:', error);
+        toast({ variant: 'destructive', title: 'Errore', description: 'Impossibile aggiornare il promemoria' });
+        return false;
+      }
+    } else {
+      // Create new reminder config
+      const { error } = await supabase
+        .from('reminder_configs')
+        .insert({
+          obligation_id: obligationId,
+          user_id: user.id,
+          days_before: updates.days_before || [30, 14, 7, 1],
+          email_enabled: updates.email_enabled ?? true,
+          push_enabled: updates.push_enabled ?? false,
+        });
+
+      if (error) {
+        console.error('Error creating reminder:', error);
+        toast({ variant: 'destructive', title: 'Errore', description: 'Impossibile creare il promemoria' });
+        return false;
+      }
+    }
+    
+    await fetchReminders();
+    return true;
+  };
+
+  const createReminderForObligation = async (obligationId: string) => {
+    if (!user) return null;
+
+    const { data, error } = await supabase
+      .from('reminder_configs')
+      .insert({
+        obligation_id: obligationId,
+        user_id: user.id,
+        days_before: [30, 14, 7, 1],
+        email_enabled: true,
+        push_enabled: false,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating reminder config:', error);
+      return null;
+    }
+
+    await fetchReminders();
+    return data;
+  };
+
+  return {
+    reminders,
+    loading,
+    isLoading: loading,
+    updateReminder,
+    createReminderForObligation,
+    refetch: fetchReminders,
+  };
 }
 
 export function useAIInsights() {
@@ -253,6 +380,8 @@ export function useAIInsights() {
       
       if (error.message?.includes('429')) {
         toast({ variant: 'destructive', title: 'Limite raggiunto', description: 'Troppe richieste, riprova tra poco' });
+      } else if (error.message?.includes('402')) {
+        toast({ variant: 'destructive', title: 'Crediti esauriti', description: 'Ricarica il tuo account per continuare' });
       } else {
         toast({ variant: 'destructive', title: 'Errore AI', description: 'Impossibile generare l\'analisi' });
       }
@@ -264,4 +393,32 @@ export function useAIInsights() {
   };
 
   return { getInsight, loading };
+}
+
+// Activity log helper
+export function useActivityLog() {
+  const { user } = useAuth();
+
+  const logActivity = async (
+    action: string,
+    entityType: string,
+    entityId: string,
+    details?: Record<string, unknown>
+  ) => {
+    if (!user) return;
+
+    try {
+      await supabase.from('activity_logs').insert([{
+        user_id: user.id,
+        action,
+        entity_type: entityType,
+        entity_id: entityId,
+        details: details || null,
+      }]);
+    } catch (error) {
+      console.error('Error logging activity:', error);
+    }
+  };
+
+  return { logActivity };
 }
