@@ -1,1 +1,7 @@
 project_id = "gkatgopkbmxctibawbps"
+
+[functions.ai-insights]
+verify_jwt = true
+
+[functions.send-deadline-notifications]
+verify_jwt = false

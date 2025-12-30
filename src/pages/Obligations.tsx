@@ -32,7 +32,9 @@ import { StatusBadge, RiskBadge, CategoryBadge } from '@/components/StatusBadge'
 import { ObligationDialog } from '@/components/ObligationDialog';
 import { useObligationsDB, categoryMap, reverseCategoryMap, type ObligationRow } from '@/hooks/useSupabaseData';
 import { calculateDaysUntilDeadline, calculateRiskLevel, getRecurrenceLabel } from '@/lib/compliance';
-import { Plus, Search, Pencil, Trash2, Filter, Download, FileSpreadsheet } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Filter, Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { downloadComplianceReport } from '@/lib/pdfExport';
+import { useCompanyDB } from '@/hooks/useSupabaseData';
 import { format, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
@@ -55,6 +57,7 @@ const toUIFormat = (obl: ObligationRow) => ({
 
 export default function Obligations() {
   const { obligations, isLoading, addObligation, updateObligation, deleteObligation } = useObligationsDB();
+  const { company } = useCompanyDB();
   const { toast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -184,6 +187,12 @@ export default function Obligations() {
     toast({ title: 'Export completato', description: 'File JSON scaricato con successo' });
   };
 
+  // Export to PDF
+  const exportToPDF = () => {
+    downloadComplianceReport(filteredObligations, company);
+    toast({ title: 'Export completato', description: 'Report PDF scaricato con successo' });
+  };
+
   if (isLoading) {
     return (
       <Layout>
@@ -204,6 +213,10 @@ export default function Obligations() {
             <p className="text-muted-foreground">Gestisci i tuoi obblighi di compliance e le scadenze</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={exportToPDF}>
+              <FileText className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
             <Button variant="outline" size="sm" onClick={exportToCSV}>
               <Download className="h-4 w-4 mr-2" />
               CSV

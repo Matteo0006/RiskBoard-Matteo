@@ -3,7 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useObligationsDB, categoryMap, type ObligationRow } from '@/hooks/useSupabaseData';
 import { calculateRiskLevel, calculateDaysUntilDeadline } from '@/lib/compliance';
 import { RiskBadge, StatusBadge, CategoryBadge } from '@/components/StatusBadge';
-import { AlertTriangle, TrendingDown, TrendingUp, Minus, Info, Download } from 'lucide-react';
+import { AlertTriangle, TrendingDown, TrendingUp, Minus, Info, Download, FileText } from 'lucide-react';
+import { downloadRiskReport } from '@/lib/pdfExport';
+import { useCompanyDB } from '@/hooks/useSupabaseData';
 import { format, parseISO } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -27,7 +29,13 @@ const toUIFormat = (obl: ObligationRow) => ({
 
 export default function RiskIndicators() {
   const { obligations, isLoading } = useObligationsDB();
+  const { company } = useCompanyDB();
   const { toast } = useToast();
+
+  const exportToPDF = () => {
+    downloadRiskReport(obligations, company);
+    toast({ title: 'Export completato', description: 'Report Rischio PDF scaricato' });
+  };
 
   if (isLoading) {
     return (
@@ -143,10 +151,16 @@ export default function RiskIndicators() {
             <h1 className="text-2xl font-bold text-foreground">Indicatori di Rischio</h1>
             <p className="text-muted-foreground">Analizza e monitora i livelli di rischio di compliance</p>
           </div>
-          <Button variant="outline" onClick={exportRiskReport}>
-            <Download className="h-4 w-4 mr-2" />
-            Esporta Report
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={exportToPDF}>
+              <FileText className="h-4 w-4 mr-2" />
+              PDF
+            </Button>
+            <Button variant="outline" onClick={exportRiskReport}>
+              <Download className="h-4 w-4 mr-2" />
+              JSON
+            </Button>
+          </div>
         </div>
 
         {/* Empty State */}
