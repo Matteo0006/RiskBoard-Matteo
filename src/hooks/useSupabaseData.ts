@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
-import type { Database } from '@/integrations/supabase/types';
+import type { Database, Json } from '@/integrations/supabase/types';
 
 export type ObligationRow = Database['public']['Tables']['obligations']['Row'];
 export type ObligationInsert = Database['public']['Tables']['obligations']['Insert'];
@@ -413,7 +413,7 @@ export function useActivityLog() {
         action,
         entity_type: entityType,
         entity_id: entityId,
-        details: details || null,
+        details: (details as unknown as Json) || null,
       }]);
     } catch (error) {
       console.error('Error logging activity:', error);
