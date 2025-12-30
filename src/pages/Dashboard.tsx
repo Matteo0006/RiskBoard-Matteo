@@ -2,8 +2,8 @@ import { Layout } from '@/components/Layout';
 import { StatCard } from '@/components/StatCard';
 import { StatusBadge, RiskBadge, CategoryBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useObligations } from '@/hooks/useComplianceData';
-import { calculateDashboardStats, calculateDaysUntilDeadline, calculateRiskLevel } from '@/lib/compliance';
+import { useObligationsDB, categoryMap } from '@/hooks/useSupabaseData';
+import { calculateDaysUntilDeadline, calculateRiskLevel } from '@/lib/compliance';
 import { 
   ClipboardList, 
   Clock, 
@@ -14,46 +14,72 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import type { RiskLevel } from '@/types/compliance';
+
+// Helper to convert DB obligation to UI format for calculation
+const toUIFormat = (obl: any) => ({
+  id: obl.id,
+  title: obl.title,
+  description: obl.description || '',
+  category: categoryMap[obl.category] || obl.category,
+  deadline: obl.deadline,
+  recurrence: obl.frequency,
+  status: obl.status,
+  assignedTo: obl.assigned_to || '',
+  penaltySeverity: (obl.risk_level || 'medium') as RiskLevel,
+  notes: obl.notes || '',
+  createdAt: obl.created_at,
+  updatedAt: obl.updated_at,
+});
 
 export default function Dashboard() {
-  const { obligations, isLoading } = useObligations();
+  const { obligations, isLoading } = useObligationsDB();
 
   if (isLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       </Layout>
     );
   }
 
-  const stats = calculateDashboardStats(obligations);
+  // Convert to UI format for calculations
+  const uiObligations = obligations.map(toUIFormat);
+
+  // Calculate stats
+  const total = uiObligations.length;
+  const completed = uiObligations.filter(o => o.status === 'completed').length;
+  const pending = uiObligations.filter(o => o.status === 'pending' || o.status === 'in_progress').length;
+  const overdue = uiObligations.filter(o => o.status === 'overdue').length;
+  const highRisk = uiObligations.filter(o => calculateRiskLevel(o as any) === 'high').length;
+  const complianceRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   // Prepare chart data
   const categoryData = [
-    { name: 'Tax & Financial', value: obligations.filter(o => o.category === 'tax').length, color: 'hsl(220, 60%, 25%)' },
-    { name: 'Licenses & Permits', value: obligations.filter(o => o.category === 'license').length, color: 'hsl(200, 70%, 45%)' },
-    { name: 'Regulatory & Legal', value: obligations.filter(o => o.category === 'regulatory').length, color: 'hsl(38, 92%, 50%)' },
+    { name: 'Fiscale', value: uiObligations.filter(o => o.category === 'tax').length, color: 'hsl(220, 60%, 25%)' },
+    { name: 'Licenze', value: uiObligations.filter(o => o.category === 'license').length, color: 'hsl(200, 70%, 45%)' },
+    { name: 'Normativo', value: uiObligations.filter(o => o.category === 'regulatory').length, color: 'hsl(38, 92%, 50%)' },
   ];
 
   const riskData = [
-    { name: 'High Risk', value: obligations.filter(o => calculateRiskLevel(o) === 'high').length, color: 'hsl(0, 70%, 50%)' },
-    { name: 'Medium Risk', value: obligations.filter(o => calculateRiskLevel(o) === 'medium').length, color: 'hsl(38, 92%, 50%)' },
-    { name: 'Low Risk', value: obligations.filter(o => calculateRiskLevel(o) === 'low').length, color: 'hsl(142, 70%, 40%)' },
+    { name: 'Alto', value: uiObligations.filter(o => calculateRiskLevel(o as any) === 'high').length, color: 'hsl(0, 70%, 50%)' },
+    { name: 'Medio', value: uiObligations.filter(o => calculateRiskLevel(o as any) === 'medium').length, color: 'hsl(38, 92%, 50%)' },
+    { name: 'Basso', value: uiObligations.filter(o => calculateRiskLevel(o as any) === 'low').length, color: 'hsl(142, 70%, 40%)' },
   ];
 
   const statusData = [
-    { name: 'Pending', count: obligations.filter(o => o.status === 'pending').length },
-    { name: 'In Progress', count: obligations.filter(o => o.status === 'in_progress').length },
-    { name: 'Completed', count: obligations.filter(o => o.status === 'completed').length },
-    { name: 'Overdue', count: obligations.filter(o => o.status === 'overdue').length },
+    { name: 'In Attesa', count: uiObligations.filter(o => o.status === 'pending').length },
+    { name: 'In Corso', count: uiObligations.filter(o => o.status === 'in_progress').length },
+    { name: 'Completati', count: uiObligations.filter(o => o.status === 'completed').length },
+    { name: 'Scaduti', count: uiObligations.filter(o => o.status === 'overdue').length },
   ];
 
   // Upcoming deadlines (next 30 days, not completed)
-  const upcomingObligations = obligations
+  const upcomingObligations = uiObligations
     .filter(o => o.status !== 'completed')
-    .map(o => ({ ...o, daysUntil: calculateDaysUntilDeadline(o.deadline), risk: calculateRiskLevel(o) }))
+    .map(o => ({ ...o, daysUntil: calculateDaysUntilDeadline(o.deadline), risk: calculateRiskLevel(o as any) }))
     .filter(o => o.daysUntil <= 30)
     .sort((a, b) => a.daysUntil - b.daysUntil)
     .slice(0, 8);
@@ -64,192 +90,160 @@ export default function Dashboard() {
         {/* Page Header */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">Overview of your compliance obligations and deadlines</p>
+          <p className="text-muted-foreground">
+            Panoramica del tuo stato di compliance
+          </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            title="Total Obligations"
-            value={stats.totalObligations}
-            description="Active compliance items"
-            icon={ClipboardList}
-            variant="default"
-          />
-          <StatCard
-            title="Due in 7 Days"
-            value={stats.upcomingIn7Days}
-            description="Immediate attention required"
-            icon={Clock}
-            variant={stats.upcomingIn7Days > 3 ? 'warning' : 'default'}
-          />
-          <StatCard
-            title="Overdue"
-            value={stats.overdueCount}
-            description="Requires urgent action"
-            icon={AlertTriangle}
-            variant={stats.overdueCount > 0 ? 'danger' : 'success'}
-          />
-          <StatCard
-            title="Compliance Score"
-            value={`${stats.complianceScore}%`}
-            description="Overall compliance health"
-            icon={TrendingUp}
-            variant={stats.complianceScore >= 80 ? 'success' : stats.complianceScore >= 60 ? 'warning' : 'danger'}
-          />
-        </div>
-
-        {/* Charts Row */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Risk Distribution */}
+        {/* Empty state */}
+        {total === 0 && (
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Risk Distribution</CardTitle>
-              <CardDescription>Current risk levels across obligations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={riskData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {riskData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex justify-center gap-4 mt-2">
-                {riskData.map((item) => (
-                  <div key={item.name} className="flex items-center gap-1.5 text-xs">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-muted-foreground">{item.name}: {item.value}</span>
-                  </div>
-                ))}
-              </div>
+            <CardContent className="py-12 text-center">
+              <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium">Nessun obbligo presente</p>
+              <p className="text-muted-foreground">Vai alla sezione Obblighi per aggiungere il primo</p>
             </CardContent>
           </Card>
+        )}
 
-          {/* Category Distribution */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">By Category</CardTitle>
-              <CardDescription>Obligations grouped by type</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex flex-wrap justify-center gap-3 mt-2">
-                {categoryData.map((item) => (
-                  <div key={item.name} className="flex items-center gap-1.5 text-xs">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-muted-foreground">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Status Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Status Overview</CardTitle>
-              <CardDescription>Obligations by current status</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statusData} layout="vertical">
-                    <XAxis type="number" hide />
-                    <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11 }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="hsl(220, 60%, 25%)" radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Upcoming Deadlines */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">Upcoming Deadlines</CardTitle>
-                <CardDescription>Next 30 days - sorted by urgency</CardDescription>
-              </div>
-              <Calendar className="h-5 w-5 text-muted-foreground" />
+        {total > 0 && (
+          <>
+            {/* Stats Grid */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                title="Totale Obblighi"
+                value={total}
+                description={`${pending} in attesa`}
+                icon={ClipboardList}
+              />
+              <StatCard
+                title="Tasso Compliance"
+                value={`${complianceRate}%`}
+                description={`${completed} completati`}
+                icon={TrendingUp}
+                variant="success"
+              />
+              <StatCard
+                title="In Scadenza (7gg)"
+                value={upcomingObligations.filter(o => o.daysUntil <= 7).length}
+                description="prossimi 7 giorni"
+                icon={Clock}
+                variant="warning"
+              />
+              <StatCard
+                title="Alto Rischio"
+                value={highRisk}
+                description={`${overdue} scaduti`}
+                icon={AlertTriangle}
+                variant={highRisk > 0 ? 'danger' : 'default'}
+              />
             </div>
-          </CardHeader>
-          <CardContent>
-            {upcomingObligations.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No upcoming deadlines in the next 30 days</p>
-            ) : (
-              <div className="space-y-3">
-                {upcomingObligations.map((obl) => (
-                  <div
-                    key={obl.id}
-                    className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">{obl.title}</p>
-                        <CategoryBadge category={obl.category} />
-                      </div>
-                      <p className="text-sm text-muted-foreground">{obl.assignedTo}</p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="text-sm font-medium text-foreground">
-                          {format(parseISO(obl.deadline), 'MMM d, yyyy')}
-                        </p>
-                        <p className={`text-xs ${obl.daysUntil < 0 ? 'text-danger' : obl.daysUntil <= 7 ? 'text-warning' : 'text-muted-foreground'}`}>
-                          {obl.daysUntil < 0
-                            ? `${Math.abs(obl.daysUntil)} days overdue`
-                            : obl.daysUntil === 0
-                            ? 'Due today'
-                            : `${obl.daysUntil} days left`}
-                        </p>
-                      </div>
-                      <div className="flex flex-col gap-1 items-end">
-                        <StatusBadge status={obl.status} />
-                        <RiskBadge risk={obl.risk} />
-                      </div>
-                    </div>
+
+            {/* Charts Row */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Category Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Per Categoria</CardTitle>
+                  <CardDescription>Distribuzione obblighi per tipo</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={categoryData.filter(d => d.value > 0)}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="value"
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                </CardContent>
+              </Card>
+
+              {/* Status Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Per Stato</CardTitle>
+                  <CardDescription>Distribuzione per stato attuale</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={statusData}>
+                        <XAxis dataKey="name" fontSize={12} />
+                        <YAxis allowDecimals={false} fontSize={12} />
+                        <Tooltip />
+                        <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Upcoming Deadlines */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Prossime Scadenze
+                </CardTitle>
+                <CardDescription>Obblighi in scadenza nei prossimi 30 giorni</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {upcomingObligations.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                    <p>Nessuna scadenza imminente</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {upcomingObligations.map((obl) => (
+                      <div
+                        key={obl.id}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground">{obl.title}</span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <CategoryBadge category={obl.category} />
+                              <span className="text-xs text-muted-foreground">
+                                {format(parseISO(obl.deadline), 'dd/MM/yyyy')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RiskBadge risk={obl.risk} />
+                          <div className={`text-sm font-medium px-2 py-1 rounded ${
+                            obl.daysUntil <= 0 ? 'bg-destructive/10 text-destructive' :
+                            obl.daysUntil <= 7 ? 'bg-warning/10 text-warning' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {obl.daysUntil <= 0 ? 'Scaduto' : `${obl.daysUntil}g`}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </Layout>
   );
