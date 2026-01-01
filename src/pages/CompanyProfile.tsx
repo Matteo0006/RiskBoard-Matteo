@@ -1,56 +1,122 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useCompanyProfile } from '@/hooks/useComplianceData';
-import { Building2, Mail, Phone, MapPin, User, FileText, RotateCcw, Save } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useCompanyDB } from '@/hooks/useSupabaseData';
+import { Building2, Mail, Phone, MapPin, User, FileText, Save } from 'lucide-react';
+
+interface FormData {
+  name: string;
+  registration_number: string;
+  vat_number: string;
+  industry: string;
+  email: string;
+  phone: string;
+  website: string;
+  address: string;
+  city: string;
+  country: string;
+  employee_count: number;
+  fiscal_year_end: string;
+}
 
 export default function CompanyProfile() {
-  const { company, isLoading, updateCompany, resetToSample } = useCompanyProfile();
-  const { toast } = useToast();
+  const { company, isLoading, saveCompany } = useCompanyDB();
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState(company);
+  const [formData, setFormData] = useState<FormData>({
+    name: '',
+    registration_number: '',
+    vat_number: '',
+    industry: '',
+    email: '',
+    phone: '',
+    website: '',
+    address: '',
+    city: '',
+    country: 'Italia',
+    employee_count: 0,
+    fiscal_year_end: '12-31',
+  });
 
-  if (isLoading || !company) {
+  // Sync form data with company data
+  useEffect(() => {
+    if (company) {
+      setFormData({
+        name: company.name || '',
+        registration_number: company.registration_number || '',
+        vat_number: company.vat_number || '',
+        industry: company.industry || '',
+        email: company.email || '',
+        phone: company.phone || '',
+        website: company.website || '',
+        address: company.address || '',
+        city: company.city || '',
+        country: company.country || 'Italia',
+        employee_count: company.employee_count || 0,
+        fiscal_year_end: company.fiscal_year_end || '12-31',
+      });
+    }
+  }, [company]);
+
+  if (isLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <p className="text-muted-foreground">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
         </div>
       </Layout>
     );
   }
 
   const handleEdit = () => {
-    setFormData(company);
     setIsEditing(true);
   };
 
-  const handleSave = () => {
-    if (formData) {
-      updateCompany(formData);
-      setIsEditing(false);
-      toast({
-        title: 'Company profile updated',
-        description: 'Your changes have been saved successfully.',
+  const handleCancel = () => {
+    if (company) {
+      setFormData({
+        name: company.name || '',
+        registration_number: company.registration_number || '',
+        vat_number: company.vat_number || '',
+        industry: company.industry || '',
+        email: company.email || '',
+        phone: company.phone || '',
+        website: company.website || '',
+        address: company.address || '',
+        city: company.city || '',
+        country: company.country || 'Italia',
+        employee_count: company.employee_count || 0,
+        fiscal_year_end: company.fiscal_year_end || '12-31',
       });
     }
-  };
-
-  const handleReset = () => {
-    resetToSample();
-    setFormData(company);
     setIsEditing(false);
-    toast({
-      title: 'Profile reset',
-      description: 'Company profile has been reset to sample data.',
-    });
   };
 
-  const displayData = isEditing ? formData : company;
+  const handleSave = async () => {
+    await saveCompany({
+      name: formData.name,
+      registration_number: formData.registration_number || null,
+      vat_number: formData.vat_number || null,
+      industry: formData.industry || null,
+      email: formData.email || null,
+      phone: formData.phone || null,
+      website: formData.website || null,
+      address: formData.address || null,
+      city: formData.city || null,
+      country: formData.country || 'Italia',
+      employee_count: formData.employee_count || null,
+      fiscal_year_end: formData.fiscal_year_end || '12-31',
+    });
+    setIsEditing(false);
+  };
+
+  const updateField = (field: keyof FormData, value: string | number) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const hasData = company !== null;
 
   return (
     <Layout>
@@ -58,247 +124,296 @@ export default function CompanyProfile() {
         {/* Page Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Company Profile</h1>
-            <p className="text-muted-foreground">Manage your organization's compliance information</p>
+            <h1 className="text-2xl font-bold text-foreground">Profilo Aziendale</h1>
+            <p className="text-muted-foreground">Gestisci le informazioni della tua organizzazione</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleReset}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset to Sample
-            </Button>
             {isEditing ? (
               <>
-                <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
-                  Cancel
+                <Button variant="outline" size="sm" onClick={handleCancel}>
+                  Annulla
                 </Button>
                 <Button size="sm" onClick={handleSave}>
                   <Save className="h-4 w-4 mr-2" />
-                  Save Changes
+                  Salva
                 </Button>
               </>
             ) : (
               <Button size="sm" onClick={handleEdit}>
-                Edit Profile
+                {hasData ? 'Modifica' : 'Configura Profilo'}
               </Button>
             )}
           </div>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Company Information */}
+        {/* Empty State */}
+        {!hasData && !isEditing && (
           <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                <CardTitle>Company Information</CardTitle>
-              </div>
-              <CardDescription>Basic company details and registration</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Company Name</Label>
-                {isEditing ? (
-                  <Input
-                    id="name"
-                    value={formData?.name || ''}
-                    onChange={(e) => setFormData({ ...formData!, name: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-foreground font-medium">{displayData?.name}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="registrationNumber">Registration Number</Label>
-                {isEditing ? (
-                  <Input
-                    id="registrationNumber"
-                    value={formData?.registrationNumber || ''}
-                    onChange={(e) => setFormData({ ...formData!, registrationNumber: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-foreground">{displayData?.registrationNumber}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="industrySector">Industry Sector</Label>
-                {isEditing ? (
-                  <Input
-                    id="industrySector"
-                    value={formData?.industrySector || ''}
-                    onChange={(e) => setFormData({ ...formData!, industrySector: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-foreground">{displayData?.industrySector}</p>
-                )}
-              </div>
+            <CardContent className="py-12 text-center">
+              <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-lg font-medium">Nessun profilo aziendale configurato</p>
+              <p className="text-muted-foreground mb-4">Configura il profilo della tua azienda per iniziare</p>
+              <Button onClick={handleEdit}>
+                Configura Profilo
+              </Button>
             </CardContent>
           </Card>
+        )}
 
-          {/* Contact Information */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-primary" />
-                <CardTitle>Contact Information</CardTitle>
-              </div>
-              <CardDescription>Primary contact details for compliance matters</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="contactEmail">Email Address</Label>
-                {isEditing ? (
-                  <Input
-                    id="contactEmail"
-                    type="email"
-                    value={formData?.contactEmail || ''}
-                    onChange={(e) => setFormData({ ...formData!, contactEmail: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-foreground">{displayData?.contactEmail}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="contactPhone">Phone Number</Label>
-                {isEditing ? (
-                  <Input
-                    id="contactPhone"
-                    value={formData?.contactPhone || ''}
-                    onChange={(e) => setFormData({ ...formData!, contactPhone: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-foreground">{displayData?.contactPhone}</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Address */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-primary" />
-                <CardTitle>Address</CardTitle>
-              </div>
-              <CardDescription>Registered business address</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="address">Street Address</Label>
-                {isEditing ? (
-                  <Input
-                    id="address"
-                    value={formData?.address || ''}
-                    onChange={(e) => setFormData({ ...formData!, address: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-foreground">{displayData?.address}</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+        {(hasData || isEditing) && (
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Company Information */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  <CardTitle>Informazioni Azienda</CardTitle>
+                </div>
+                <CardDescription>Dati societari e registrazione</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="city">City</Label>
+                  <Label htmlFor="name">Nome Azienda *</Label>
                   {isEditing ? (
                     <Input
-                      id="city"
-                      value={formData?.city || ''}
-                      onChange={(e) => setFormData({ ...formData!, city: e.target.value })}
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => updateField('name', e.target.value)}
+                      placeholder="Inserisci il nome dell'azienda"
                     />
                   ) : (
-                    <p className="text-foreground">{displayData?.city}</p>
+                    <p className="text-foreground font-medium">{formData.name || '-'}</p>
                   )}
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="country">Country</Label>
+                  <Label htmlFor="registration_number">Numero REA / Registro Imprese</Label>
                   {isEditing ? (
                     <Input
-                      id="country"
-                      value={formData?.country || ''}
-                      onChange={(e) => setFormData({ ...formData!, country: e.target.value })}
+                      id="registration_number"
+                      value={formData.registration_number}
+                      onChange={(e) => updateField('registration_number', e.target.value)}
+                      placeholder="Es. MI-1234567"
                     />
                   ) : (
-                    <p className="text-foreground">{displayData?.country}</p>
+                    <p className="text-foreground">{formData.registration_number || '-'}</p>
                   )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="grid gap-2">
+                  <Label htmlFor="vat_number">Partita IVA</Label>
+                  {isEditing ? (
+                    <Input
+                      id="vat_number"
+                      value={formData.vat_number}
+                      onChange={(e) => updateField('vat_number', e.target.value)}
+                      placeholder="Es. IT12345678901"
+                    />
+                  ) : (
+                    <p className="text-foreground">{formData.vat_number || '-'}</p>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="industry">Settore</Label>
+                  {isEditing ? (
+                    <Input
+                      id="industry"
+                      value={formData.industry}
+                      onChange={(e) => updateField('industry', e.target.value)}
+                      placeholder="Es. Tecnologia, Manifatturiero, Servizi"
+                    />
+                  ) : (
+                    <p className="text-foreground">{formData.industry || '-'}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Responsible Person */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <User className="h-5 w-5 text-primary" />
-                <CardTitle>Responsible Person</CardTitle>
-              </div>
-              <CardDescription>Primary compliance officer or responsible party</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <Label htmlFor="responsiblePerson">Name</Label>
-                {isEditing ? (
-                  <Input
-                    id="responsiblePerson"
-                    value={formData?.responsiblePerson || ''}
-                    onChange={(e) => setFormData({ ...formData!, responsiblePerson: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-foreground font-medium">{displayData?.responsiblePerson}</p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="responsiblePersonTitle">Title</Label>
-                {isEditing ? (
-                  <Input
-                    id="responsiblePersonTitle"
-                    value={formData?.responsiblePersonTitle || ''}
-                    onChange={(e) => setFormData({ ...formData!, responsiblePersonTitle: e.target.value })}
-                  />
-                ) : (
-                  <p className="text-foreground">{displayData?.responsiblePersonTitle}</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            {/* Contact Information */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-primary" />
+                  <CardTitle>Contatti</CardTitle>
+                </div>
+                <CardDescription>Recapiti per comunicazioni di compliance</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  {isEditing ? (
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => updateField('email', e.target.value)}
+                      placeholder="compliance@azienda.it"
+                    />
+                  ) : (
+                    <p className="text-foreground">{formData.email || '-'}</p>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="phone">Telefono</Label>
+                  {isEditing ? (
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => updateField('phone', e.target.value)}
+                      placeholder="+39 02 1234567"
+                    />
+                  ) : (
+                    <p className="text-foreground">{formData.phone || '-'}</p>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="website">Sito Web</Label>
+                  {isEditing ? (
+                    <Input
+                      id="website"
+                      value={formData.website}
+                      onChange={(e) => updateField('website', e.target.value)}
+                      placeholder="https://www.azienda.it"
+                    />
+                  ) : (
+                    <p className="text-foreground">{formData.website || '-'}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Address */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary" />
+                  <CardTitle>Sede Legale</CardTitle>
+                </div>
+                <CardDescription>Indirizzo registrato dell'azienda</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="address">Indirizzo</Label>
+                  {isEditing ? (
+                    <Input
+                      id="address"
+                      value={formData.address}
+                      onChange={(e) => updateField('address', e.target.value)}
+                      placeholder="Via Roma, 1"
+                    />
+                  ) : (
+                    <p className="text-foreground">{formData.address || '-'}</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="city">Città</Label>
+                    {isEditing ? (
+                      <Input
+                        id="city"
+                        value={formData.city}
+                        onChange={(e) => updateField('city', e.target.value)}
+                        placeholder="Milano"
+                      />
+                    ) : (
+                      <p className="text-foreground">{formData.city || '-'}</p>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="country">Paese</Label>
+                    {isEditing ? (
+                      <Input
+                        id="country"
+                        value={formData.country}
+                        onChange={(e) => updateField('country', e.target.value)}
+                        placeholder="Italia"
+                      />
+                    ) : (
+                      <p className="text-foreground">{formData.country || '-'}</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Additional Info */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-primary" />
+                  <CardTitle>Altre Informazioni</CardTitle>
+                </div>
+                <CardDescription>Dati aggiuntivi per la compliance</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="employee_count">Numero Dipendenti</Label>
+                  {isEditing ? (
+                    <Input
+                      id="employee_count"
+                      type="number"
+                      value={formData.employee_count}
+                      onChange={(e) => updateField('employee_count', parseInt(e.target.value) || 0)}
+                      placeholder="0"
+                    />
+                  ) : (
+                    <p className="text-foreground">{formData.employee_count || '-'}</p>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="fiscal_year_end">Fine Anno Fiscale</Label>
+                  {isEditing ? (
+                    <Input
+                      id="fiscal_year_end"
+                      value={formData.fiscal_year_end}
+                      onChange={(e) => updateField('fiscal_year_end', e.target.value)}
+                      placeholder="12-31"
+                    />
+                  ) : (
+                    <p className="text-foreground">{formData.fiscal_year_end || '12-31'}</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Compliance Categories */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              <CardTitle>Industry Compliance Categories</CardTitle>
+              <CardTitle>Categorie di Compliance</CardTitle>
             </div>
             <CardDescription>
-              Based on your industry sector, these are the typical compliance areas that apply
+              In base al tuo settore, queste sono le aree di compliance tipiche
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="rounded-lg border p-4">
-                <h4 className="font-semibold text-foreground mb-2">Tax & Financial</h4>
+                <h4 className="font-semibold text-foreground mb-2">Fiscale & Finanziario</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Corporate tax filings</li>
-                  <li>• VAT/Sales tax returns</li>
-                  <li>• Payroll taxes</li>
-                  <li>• Financial audits</li>
+                  <li>• Dichiarazioni fiscali</li>
+                  <li>• IVA e imposte</li>
+                  <li>• Contributi previdenziali</li>
+                  <li>• Bilanci e audit</li>
                 </ul>
               </div>
               <div className="rounded-lg border p-4">
-                <h4 className="font-semibold text-foreground mb-2">Licenses & Permits</h4>
+                <h4 className="font-semibold text-foreground mb-2">Licenze & Permessi</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Business licenses</li>
-                  <li>• Professional certifications</li>
-                  <li>• Insurance renewals</li>
-                  <li>• Trade memberships</li>
+                  <li>• Licenze commerciali</li>
+                  <li>• Certificazioni professionali</li>
+                  <li>• Rinnovi assicurativi</li>
+                  <li>• Iscrizioni albi</li>
                 </ul>
               </div>
               <div className="rounded-lg border p-4">
-                <h4 className="font-semibold text-foreground mb-2">Regulatory & Legal</h4>
+                <h4 className="font-semibold text-foreground mb-2">Normativo & Legale</h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Data protection (GDPR)</li>
-                  <li>• Health & safety</li>
-                  <li>• Environmental reports</li>
-                  <li>• Industry regulations</li>
+                  <li>• GDPR e privacy</li>
+                  <li>• Sicurezza sul lavoro</li>
+                  <li>• Rapporti ambientali</li>
+                  <li>• Normative di settore</li>
                 </ul>
               </div>
             </div>
