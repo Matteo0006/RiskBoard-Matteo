@@ -6,17 +6,17 @@ import {
   ClipboardList, 
   AlertTriangle, 
   Bell, 
-  Puzzle,
-  Info
+  LogOut
 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Company Profile', href: '/company', icon: Building2 },
-  { name: 'Obligations', href: '/obligations', icon: ClipboardList },
-  { name: 'Risk Indicators', href: '/risk', icon: AlertTriangle },
-  { name: 'Reminders', href: '/reminders', icon: Bell },
-  { name: 'Integration Demo', href: '/integration', icon: Puzzle },
+  { name: 'Profilo Azienda', href: '/company', icon: Building2 },
+  { name: 'Obblighi', href: '/obligations', icon: ClipboardList },
+  { name: 'Indicatori Rischio', href: '/risk', icon: AlertTriangle },
+  { name: 'Promemoria', href: '/reminders', icon: Bell },
 ];
 
 interface LayoutProps {
@@ -37,14 +37,8 @@ export function Layout({ children }: LayoutProps) {
             </div>
             <div>
               <h1 className="text-lg font-semibold text-foreground">ComplianceTrack</h1>
-              <p className="text-xs text-muted-foreground">Deadline Management System</p>
+              <p className="text-xs text-muted-foreground">Sistema Gestione Scadenze</p>
             </div>
-          </div>
-          
-          {/* Prototype Notice */}
-          <div className="ml-auto flex items-center gap-2 rounded-md bg-muted px-3 py-1.5">
-            <Info className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground">Prototype Demonstration</span>
           </div>
         </div>
       </header>
@@ -73,12 +67,17 @@ export function Layout({ children }: LayoutProps) {
             })}
           </nav>
 
-          {/* Disclaimer */}
-          <div className="absolute bottom-0 left-0 right-0 border-t bg-muted/50 p-4">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              <strong>Disclaimer:</strong> This is a prototype demonstration. 
-              No legal advice provided. No guarantees of compliance.
-            </p>
+          {/* Logout Button */}
+          <div className="absolute bottom-0 left-0 right-0 border-t p-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-muted-foreground hover:text-foreground"
+              onClick={() => supabase.auth.signOut()}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Esci
+            </Button>
           </div>
         </aside>
 
