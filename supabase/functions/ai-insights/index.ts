@@ -6,6 +6,47 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
+const MAX_REQUESTS_PER_WINDOW = 10; // Max 10 requests per minute per user
+
+// In-memory rate limit store (resets on function cold start)
+const rateLimitStore = new Map<string, { count: number; windowStart: number }>();
+
+// Clean up old entries periodically
+const cleanupRateLimitStore = () => {
+  const now = Date.now();
+  for (const [userId, data] of rateLimitStore.entries()) {
+    if (now - data.windowStart > RATE_LIMIT_WINDOW_MS * 2) {
+      rateLimitStore.delete(userId);
+    }
+  }
+};
+
+// Check and update rate limit for a user
+const checkRateLimit = (userId: string): { allowed: boolean; remaining: number; resetIn: number } => {
+  const now = Date.now();
+  const userLimit = rateLimitStore.get(userId);
+
+  if (!userLimit || now - userLimit.windowStart > RATE_LIMIT_WINDOW_MS) {
+    // New window
+    rateLimitStore.set(userId, { count: 1, windowStart: now });
+    return { allowed: true, remaining: MAX_REQUESTS_PER_WINDOW - 1, resetIn: RATE_LIMIT_WINDOW_MS };
+  }
+
+  if (userLimit.count >= MAX_REQUESTS_PER_WINDOW) {
+    const resetIn = RATE_LIMIT_WINDOW_MS - (now - userLimit.windowStart);
+    return { allowed: false, remaining: 0, resetIn };
+  }
+
+  userLimit.count++;
+  return { 
+    allowed: true, 
+    remaining: MAX_REQUESTS_PER_WINDOW - userLimit.count, 
+    resetIn: RATE_LIMIT_WINDOW_MS - (now - userLimit.windowStart) 
+  };
+};
+
 // Sanitize text fields to prevent prompt injection
 const sanitizeText = (text: string | null | undefined, maxLength = 500): string => {
   if (!text) return "";
@@ -71,7 +112,30 @@ serve(async (req) => {
       );
     }
 
-    console.log(`AI insights request from authenticated user: ${user.id}`);
+    // Apply rate limiting per user
+    cleanupRateLimitStore();
+    const rateLimit = checkRateLimit(user.id);
+    
+    if (!rateLimit.allowed) {
+      console.warn(`Rate limit exceeded for user: ${user.id}`);
+      return new Response(
+        JSON.stringify({ 
+          error: `Troppe richieste. Riprova tra ${Math.ceil(rateLimit.resetIn / 1000)} secondi.`,
+          retry_after: Math.ceil(rateLimit.resetIn / 1000)
+        }),
+        { 
+          status: 429, 
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(Math.ceil(rateLimit.resetIn / 1000))
+          } 
+        }
+      );
+    }
+
+    console.log(`AI insights request from user: ${user.id} (remaining: ${rateLimit.remaining}/${MAX_REQUESTS_PER_WINDOW})`);
 
     const { type, obligations, company } = await req.json();
     
