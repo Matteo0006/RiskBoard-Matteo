@@ -6,6 +6,7 @@ import {
   ClipboardList, 
   AlertTriangle, 
   Bell, 
+  Settings,
   LogOut
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Obblighi', href: '/obligations', icon: ClipboardList },
   { name: 'Indicatori Rischio', href: '/risk', icon: AlertTriangle },
   { name: 'Promemoria', href: '/reminders', icon: Bell },
+  { name: 'Impostazioni', href: '/settings', icon: Settings },
 ];
 
 interface LayoutProps {
