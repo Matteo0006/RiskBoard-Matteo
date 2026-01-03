@@ -9,6 +9,7 @@ import CompanyProfile from "./pages/CompanyProfile";
 import Obligations from "./pages/Obligations";
 import RiskIndicators from "./pages/RiskIndicators";
 import Reminders from "./pages/Reminders";
+import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -44,6 +45,7 @@ function AppRoutes() {
       <Route path="/obligations" element={<ProtectedRoute><Obligations /></ProtectedRoute>} />
       <Route path="/risk" element={<ProtectedRoute><RiskIndicators /></ProtectedRoute>} />
       <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
