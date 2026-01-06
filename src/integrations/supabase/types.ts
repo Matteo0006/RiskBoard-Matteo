@@ -77,6 +77,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_request_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          request_type: string
+          response_time_ms: number | null
+          status: string
+          tokens_used: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          request_type: string
+          response_time_ms?: number | null
+          status?: string
+          tokens_used?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          request_type?: string
+          response_time_ms?: number | null
+          status?: string
+          tokens_used?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: string | null
