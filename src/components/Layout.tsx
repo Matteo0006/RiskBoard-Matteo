@@ -7,7 +7,8 @@ import {
   AlertTriangle, 
   Bell, 
   Settings,
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ const navigation = [
   { name: 'Obblighi', href: '/obligations', icon: ClipboardList },
   { name: 'Indicatori Rischio', href: '/risk', icon: AlertTriangle },
   { name: 'Promemoria', href: '/reminders', icon: Bell },
+  { name: 'Analytics AI', href: '/ai-analytics', icon: BarChart3 },
   { name: 'Impostazioni', href: '/settings', icon: Settings },
 ];
 

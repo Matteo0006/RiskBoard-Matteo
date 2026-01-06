@@ -10,6 +10,7 @@ import Obligations from "./pages/Obligations";
 import RiskIndicators from "./pages/RiskIndicators";
 import Reminders from "./pages/Reminders";
 import Settings from "./pages/Settings";
+import AIAnalytics from "./pages/AIAnalytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -45,6 +46,7 @@ function AppRoutes() {
       <Route path="/obligations" element={<ProtectedRoute><Obligations /></ProtectedRoute>} />
       <Route path="/risk" element={<ProtectedRoute><RiskIndicators /></ProtectedRoute>} />
       <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
+      <Route path="/ai-analytics" element={<ProtectedRoute><AIAnalytics /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
