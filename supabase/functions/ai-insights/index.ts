@@ -87,6 +87,34 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+  let userId: string | null = null;
+  let requestType: string = "unknown";
+  let logStatus: string = "success";
+  let errorMessage: string | null = null;
+  let tokensUsed: number | null = null;
+
+  // Helper to log request to database
+  const logRequest = async (supabaseAdmin: any) => {
+    try {
+      const responseTimeMs = Date.now() - startTime;
+      await supabaseAdmin.from('ai_request_logs').insert({
+        user_id: userId,
+        request_type: requestType,
+        status: logStatus,
+        response_time_ms: responseTimeMs,
+        tokens_used: tokensUsed,
+        error_message: errorMessage,
+        metadata: {
+          rate_limit_remaining: rateLimitStore.get(userId || '')?.count || 0
+        }
+      });
+      console.log(`AI request logged: ${requestType}, status: ${logStatus}, time: ${responseTimeMs}ms`);
+    } catch (logError) {
+      console.error("Failed to log AI request:", logError);
+    }
+  };
+
   try {
     // Verify authentication
     const authHeader = req.headers.get('Authorization');
@@ -103,6 +131,12 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
+    // Create admin client for logging (bypasses RLS)
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) {
       console.error("Auth error:", authError?.message);
@@ -112,12 +146,18 @@ serve(async (req) => {
       );
     }
 
+    userId = user.id;
+
     // Apply rate limiting per user
     cleanupRateLimitStore();
     const rateLimit = checkRateLimit(user.id);
     
     if (!rateLimit.allowed) {
       console.warn(`Rate limit exceeded for user: ${user.id}`);
+      logStatus = "rate_limited";
+      requestType = "rate_limit_exceeded";
+      await logRequest(supabaseAdmin);
+      
       return new Response(
         JSON.stringify({ 
           error: `Troppe richieste. Riprova tra ${Math.ceil(rateLimit.resetIn / 1000)} secondi.`,
@@ -138,6 +178,7 @@ serve(async (req) => {
     console.log(`AI insights request from user: ${user.id} (remaining: ${rateLimit.remaining}/${MAX_REQUESTS_PER_WINDOW})`);
 
     const { type, obligations, company } = await req.json();
+    requestType = type || "unknown";
     
     // Sanitize all input data
     const sanitizedObligations = Array.isArray(obligations) 
@@ -200,27 +241,41 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
+      logStatus = "error";
+      
       if (response.status === 429) {
+        errorMessage = "AI gateway rate limit exceeded";
+        await logRequest(supabaseAdmin);
         return new Response(
           JSON.stringify({ error: "Limite richieste superato, riprova più tardi." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
+        errorMessage = "AI credits exhausted";
+        await logRequest(supabaseAdmin);
         return new Response(
           JSON.stringify({ error: "Crediti esauriti, ricarica il tuo account." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       const errorText = await response.text();
+      errorMessage = `AI gateway error: ${response.status}`;
       console.error("AI gateway error:", response.status, errorText);
+      await logRequest(supabaseAdmin);
       throw new Error(`AI gateway error: ${response.status}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "Nessuna analisi disponibile.";
+    
+    // Extract token usage if available
+    tokensUsed = data.usage?.total_tokens || null;
 
     console.log(`AI insight generated successfully for type: ${type}`);
+
+    // Log successful request
+    await logRequest(supabaseAdmin);
 
     return new Response(
       JSON.stringify({ 
@@ -232,6 +287,28 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Error in ai-insights function:", error);
+    logStatus = "error";
+    errorMessage = error instanceof Error ? error.message : "Unknown error";
+    
+    // Try to log the error (create admin client if not already created)
+    try {
+      const supabaseAdmin = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      );
+      if (userId) {
+        await supabaseAdmin.from('ai_request_logs').insert({
+          user_id: userId,
+          request_type: requestType,
+          status: logStatus,
+          response_time_ms: Date.now() - startTime,
+          error_message: errorMessage
+        });
+      }
+    } catch (logError) {
+      console.error("Failed to log error:", logError);
+    }
+    
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Errore sconosciuto" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
