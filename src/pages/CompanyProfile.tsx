@@ -5,7 +5,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCompanyDB } from '@/hooks/useSupabaseData';
-import { Building2, Mail, Phone, MapPin, User, FileText, Save } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, User, FileText, Save, Trash2, AlertTriangle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface FormData {
   name: string;
@@ -23,8 +34,10 @@ interface FormData {
 }
 
 export default function CompanyProfile() {
-  const { company, isLoading, saveCompany } = useCompanyDB();
+  const { company, isLoading, saveCompany, deleteCompany } = useCompanyDB();
   const [isEditing, setIsEditing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
   const [formData, setFormData] = useState<FormData>({
     name: '',
     registration_number: '',
@@ -117,6 +130,32 @@ export default function CompanyProfile() {
   };
 
   const hasData = company !== null;
+
+  const handleDelete = async () => {
+    if (confirmText !== 'ELIMINA') return;
+    
+    setIsDeleting(true);
+    const success = await deleteCompany();
+    setIsDeleting(false);
+    
+    if (success) {
+      setConfirmText('');
+      setFormData({
+        name: '',
+        registration_number: '',
+        vat_number: '',
+        industry: '',
+        email: '',
+        phone: '',
+        website: '',
+        address: '',
+        city: '',
+        country: 'Italia',
+        employee_count: 0,
+        fiscal_year_end: '12-31',
+      });
+    }
+  };
 
   return (
     <Layout>
@@ -419,6 +458,87 @@ export default function CompanyProfile() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Danger Zone - Delete Company */}
+        {hasData && (
+          <Card className="border-destructive/50">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <CardTitle className="text-destructive">Zona Pericolosa</CardTitle>
+              </div>
+              <CardDescription>
+                Azioni irreversibili per il tuo profilo aziendale
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-destructive/5 border border-destructive/20">
+                <div>
+                  <h4 className="font-semibold text-foreground">Elimina Profilo Aziendale</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Una volta eliminato, tutti i dati aziendali saranno persi permanentemente.
+                  </p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Elimina
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-destructive" />
+                        Conferma Eliminazione
+                      </AlertDialogTitle>
+                      <AlertDialogDescription className="space-y-4">
+                        <p>
+                          Stai per eliminare definitivamente il profilo aziendale <strong>"{company?.name}"</strong>. 
+                          Questa azione è <strong>irreversibile</strong>.
+                        </p>
+                        <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/20">
+                          <p className="text-sm font-medium text-destructive">
+                            ⚠️ I seguenti dati saranno eliminati:
+                          </p>
+                          <ul className="text-sm text-muted-foreground mt-2 space-y-1">
+                            <li>• Tutti i dati aziendali</li>
+                            <li>• Informazioni di contatto</li>
+                            <li>• Configurazioni associate</li>
+                          </ul>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="confirm-delete" className="text-sm font-medium">
+                            Digita <span className="font-mono bg-muted px-1 rounded">ELIMINA</span> per confermare:
+                          </Label>
+                          <Input
+                            id="confirm-delete"
+                            value={confirmText}
+                            onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
+                            placeholder="Digita ELIMINA"
+                            className="font-mono"
+                          />
+                        </div>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={() => setConfirmText('')}>
+                        Annulla
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDelete}
+                        disabled={confirmText !== 'ELIMINA' || isDeleting}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
+                        {isDeleting ? 'Eliminazione...' : 'Elimina Definitivamente'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </Layout>
   );
