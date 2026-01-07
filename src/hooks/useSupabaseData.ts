@@ -209,11 +209,32 @@ export function useCompanyDB() {
     }
   };
 
+  const deleteCompany = async () => {
+    if (!user || !company) return false;
+
+    const { error } = await supabase
+      .from('companies')
+      .delete()
+      .eq('id', company.id)
+      .eq('user_id', user.id); // Double check user ownership
+
+    if (error) {
+      console.error('Error deleting company:', error);
+      toast({ variant: 'destructive', title: 'Errore', description: 'Impossibile eliminare il profilo aziendale' });
+      return false;
+    }
+    
+    setCompany(null);
+    toast({ title: 'Successo', description: 'Profilo aziendale eliminato' });
+    return true;
+  };
+
   return {
     company,
     loading,
     isLoading: loading,
     saveCompany,
+    deleteCompany,
     refetch: fetchCompany,
   };
 }
