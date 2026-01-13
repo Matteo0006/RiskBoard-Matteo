@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./hooks/useAuth";
+import { CompanyProvider } from "./contexts/CompanyContext";
 import Dashboard from "./pages/Dashboard";
 import CompanyProfile from "./pages/CompanyProfile";
 import Obligations from "./pages/Obligations";
@@ -11,6 +12,7 @@ import RiskIndicators from "./pages/RiskIndicators";
 import Reminders from "./pages/Reminders";
 import Settings from "./pages/Settings";
 import AIAnalytics from "./pages/AIAnalytics";
+import Team from "./pages/Team";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -34,7 +36,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
-  return <>{children}</>;
+  return <CompanyProvider>{children}</CompanyProvider>;
 }
 
 function AppRoutes() {
@@ -47,6 +49,7 @@ function AppRoutes() {
       <Route path="/risk" element={<ProtectedRoute><RiskIndicators /></ProtectedRoute>} />
       <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
       <Route path="/ai-analytics" element={<ProtectedRoute><AIAnalytics /></ProtectedRoute>} />
+      <Route path="/team" element={<ProtectedRoute><Team /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
