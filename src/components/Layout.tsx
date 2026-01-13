@@ -9,10 +9,12 @@ import {
   Settings,
   LogOut,
   BarChart3,
-  Sparkles
+  Sparkles,
+  Users
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { CompanySelector } from '@/components/CompanySelector';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -21,6 +23,7 @@ const navigation = [
   { name: 'Indicatori Rischio', href: '/risk', icon: AlertTriangle },
   { name: 'Promemoria', href: '/reminders', icon: Bell },
   { name: 'Analytics AI', href: '/ai-analytics', icon: BarChart3 },
+  { name: 'Team', href: '/team', icon: Users },
   { name: 'Impostazioni', href: '/settings', icon: Settings },
 ];
 
@@ -35,7 +38,7 @@ export function Layout({ children }: LayoutProps) {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-xl shadow-sm">
-        <div className="flex h-16 items-center px-6">
+        <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-glow">
               <Sparkles className="h-5 w-5 text-primary-foreground" />
@@ -46,6 +49,7 @@ export function Layout({ children }: LayoutProps) {
               <p className="text-xs text-muted-foreground">Sistema Gestione Scadenze</p>
             </div>
           </div>
+          <CompanySelector />
         </div>
       </header>
 
