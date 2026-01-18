@@ -1,10 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+// This function is designed for scheduled/cron invocation only
+// No CORS headers needed - not meant to be called from browsers
 
 interface Obligation {
   id: string;
@@ -21,6 +19,7 @@ interface Profile {
 }
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const CRON_SECRET = Deno.env.get("CRON_SECRET");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -112,7 +111,7 @@ function formatDeadlineEmail(obligations: Obligation[], userName: string): strin
         </table>
         
         <p style="margin-top: 20px;">
-          <a href="${SUPABASE_URL.replace('.supabase.co', '.lovable.app')}/obligations" 
+          <a href="https://riskboard.lovable.app/obligations" 
              style="background: #1e40af; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
             Vai agli Obblighi →
           </a>
@@ -128,14 +127,38 @@ function formatDeadlineEmail(obligations: Obligation[], userName: string): strin
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+  // This function should only be called via scheduled tasks or with a secret header
+  // No CORS needed - not a browser-callable endpoint
+  
   try {
+    // Validate cron secret if provided (for scheduled invocations)
+    const cronSecret = req.headers.get("X-Cron-Secret");
+    const authHeader = req.headers.get("Authorization");
+    
+    // Allow invocation if:
+    // 1. Valid CRON_SECRET header is provided, OR
+    // 2. Request comes from Supabase scheduler (internal invocation)
+    const isSchedulerInvocation = req.headers.get("X-Supabase-Scheduler") === "true";
+    const hasValidCronSecret = CRON_SECRET && cronSecret === CRON_SECRET;
+    
+    if (!isSchedulerInvocation && !hasValidCronSecret) {
+      // If CRON_SECRET is not set, log a warning but allow for backward compatibility
+      if (!CRON_SECRET) {
+        console.warn("CRON_SECRET not configured - function is accessible without authentication. Configure CRON_SECRET for production security.");
+      } else {
+        console.error("Unauthorized access attempt - invalid or missing X-Cron-Secret header");
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     if (!RESEND_API_KEY) {
       throw new Error("RESEND_API_KEY is not configured");
     }
+
+    console.log("Starting deadline notification check...");
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -159,9 +182,11 @@ serve(async (req) => {
       console.log("No upcoming deadlines found");
       return new Response(
         JSON.stringify({ message: "No upcoming deadlines", sent: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { "Content-Type": "application/json" } }
       );
     }
+
+    console.log(`Found ${obligations.length} obligations to process`);
 
     // Group by user
     const userObligations = new Map<string, Obligation[]>();
@@ -210,6 +235,8 @@ serve(async (req) => {
       }
     }
 
+    console.log(`Notification run complete. Sent ${sentCount} emails to ${userObligations.size} users.`);
+
     return new Response(
       JSON.stringify({ 
         message: "Notifications processed", 
@@ -217,14 +244,14 @@ serve(async (req) => {
         totalUsers: userObligations.size,
         errors: errors.length > 0 ? errors : undefined
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { "Content-Type": "application/json" } }
     );
 
   } catch (error) {
     console.error("Error in send-deadline-notifications:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 });
